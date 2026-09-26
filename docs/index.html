@@ -1,0 +1,1033 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PPT Finalizer</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="icon" href="favicon-16.png" type="image/png" sizes="16x16">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f5f5f4;
+      --surface: #fff;
+      --border: #d6d3d1;
+      --text: #1c1917;
+      --muted: #78716c;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --drop: #eff6ff;
+      --ok-bg: #ecfdf5;
+      --ok-text: #166534;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0c0a09;
+        --surface: #1c1917;
+        --border: #44403c;
+        --text: #fafaf9;
+        --muted: #a8a29e;
+        --accent: #3b82f6;
+        --accent-hover: #60a5fa;
+        --drop: #172554;
+        --ok-bg: #052e16;
+        --ok-text: #86efac;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", "Noto Sans JP", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem 3rem;
+    }
+    .page-header {
+      margin-bottom: 1.25rem;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+      gap: 1rem;
+      align-items: start;
+    }
+    .layout-main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .layout-main > .panel {
+      margin-bottom: 0;
+    }
+    .layout-side {
+      position: sticky;
+      top: 1rem;
+      align-self: start;
+      min-width: 0;
+      width: 100%;
+      height: calc(100dvh - 2rem);
+      max-height: calc(100dvh - 2rem);
+      display: flex;
+      flex-direction: column;
+    }
+    .layout-side-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      padding-right: 0.15rem;
+    }
+    .layout-side .panel {
+      margin-bottom: 0;
+      flex-shrink: 0;
+    }
+    .side-placeholder {
+      margin: 0;
+      padding: 1.25rem;
+      background: var(--surface);
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.55;
+    }
+    .side-tabs {
+      display: flex;
+      gap: 0.35rem;
+      padding: 0.35rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      flex-shrink: 0;
+    }
+    .side-tab {
+      flex: 1;
+      padding: 0.45rem 0.65rem;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .side-tab.is-active {
+      background: var(--bg);
+      color: var(--text);
+    }
+    .side-tab-badge {
+      display: inline-block;
+      margin-left: 0.25rem;
+      color: var(--accent);
+      font-size: 0.65rem;
+      vertical-align: middle;
+    }
+    .side-tab-badge[hidden] {
+      display: none !important;
+    }
+    .side-tab-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .side-tab-panel[hidden] {
+      display: none !important;
+    }
+    .reduction-block {
+      margin-top: 0.65rem;
+      padding: 0;
+    }
+    .reduction-block[hidden] {
+      display: none;
+    }
+    .reduction-bar {
+      height: 8px;
+      border-radius: 999px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      margin-bottom: 0.45rem;
+    }
+    .reduction-bar-fill {
+      height: 100%;
+      width: 0;
+      border-radius: 999px;
+      background: var(--accent);
+      transition: width 0.2s ease;
+    }
+    .font-preview {
+      margin: 0;
+      padding: 0.45rem 0.65rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      line-height: 1.35;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-height: 2.35rem;
+      display: flex;
+      align-items: center;
+    }
+    .font-preview--title {
+      font-weight: 600;
+      font-size: 1.1rem;
+    }
+    .font-preview--body {
+      font-size: 0.92rem;
+    }
+    .font-options.is-disabled .font-preview {
+      opacity: 0.45;
+    }
+    .font-preview.is-missing {
+      color: var(--muted);
+      font-family: inherit !important;
+      font-style: italic;
+      font-size: 0.78rem;
+      font-weight: 400;
+      white-space: normal;
+    }
+    .actions-sticky {
+      position: sticky;
+      bottom: 0;
+      z-index: 20;
+      padding-top: 0.5rem;
+      background: linear-gradient(to top, var(--bg) 65%, transparent);
+    }
+    .actions-sticky-inner {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
+    }
+    @media (prefers-color-scheme: dark) {
+      .actions-sticky-inner {
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25);
+      }
+    }
+    .actions-sticky .actions {
+      margin-top: 0;
+    }
+    .actions-sticky .error {
+      margin-top: 0.65rem;
+      margin-bottom: 0;
+    }
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+      .layout-side {
+        position: static;
+        height: auto;
+        max-height: none;
+      }
+      .layout-side-scroll {
+        overflow: visible;
+        padding-right: 0;
+      }
+    }
+    h1 {
+      margin: 0 0 0.25rem;
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+    .lead {
+      margin: 0 0 1.5rem;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+    }
+    .field-hint {
+      margin: -0.15rem 0 0.5rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-weight: 400;
+    }
+    input[type="text"], select {
+      width: 100%;
+      padding: 0.55rem 0.65rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font: inherit;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .custom-font {
+      margin-top: 0.5rem;
+    }
+    .font-options {
+      display: grid;
+      gap: 0.85rem;
+      margin-top: 1.25rem;
+    }
+    .font-options .check-row {
+      margin-bottom: 0.15rem;
+    }
+    .font-options.is-disabled .font-row {
+      opacity: 0.55;
+    }
+    .font-row label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+    }
+    .font-picker-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 0.5rem;
+      align-items: start;
+    }
+    .font-picker-control {
+      min-width: 0;
+    }
+    .font-picker-control select,
+    .font-picker-control input[type="text"] {
+      width: 100%;
+    }
+    .font-picker-control .custom-font {
+      margin-top: 0.5rem;
+    }
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 1.5rem 1rem;
+      text-align: center;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .dropzone.dragover {
+      border-color: var(--accent);
+      background: var(--drop);
+    }
+    .dropzone p { margin: 0.25rem 0; }
+    .dropzone .hint { color: var(--muted); font-size: 0.85rem; }
+    .file-area-note {
+      margin: 0.5rem 0 0;
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.45;
+      font-weight: 400;
+    }
+    .file-name {
+      margin-top: 0.75rem;
+      font-size: 0.9rem;
+      word-break: break-all;
+    }
+    .file-mode {
+      display: inline-block;
+      margin-top: 0.5rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      background: var(--ok-bg);
+      color: var(--ok-text);
+    }
+    .open-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      justify-content: center;
+      margin-top: 0.75rem;
+    }
+    .scanning {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin: 0.5rem 0 0;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+    button {
+      font: inherit;
+      border: none;
+      border-radius: 6px;
+      padding: 0.6rem 1rem;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .primary:not(:disabled):hover { background: var(--accent-hover); }
+    .secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: minmax(6.5rem, 38%) 1fr;
+      column-gap: 1rem;
+      row-gap: 0.35rem;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      margin: 0;
+    }
+    .stats dt {
+      margin: 0;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .stats dd {
+      margin: 0;
+      min-width: 0;
+      word-break: break-word;
+    }
+    .stats-section-title {
+      margin: 1rem 0 0.5rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--muted);
+    }
+    .stats-section-title:first-child {
+      margin-top: 0;
+    }
+    .stats-block + .stats-section-title {
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+    }
+    .error {
+      color: #b91c1c;
+      font-size: 0.9rem;
+      margin-top: 0.75rem;
+    }
+    @media (prefers-color-scheme: dark) {
+      .error { color: #f87171; }
+    }
+    .disclaimer {
+      margin: 1rem 0 0;
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .section-title {
+      margin: 0 0 0.5rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+    .media-summary {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin: 0 0 0.75rem;
+    }
+    .media-table-wrap {
+      overflow-x: auto;
+    }
+    .media-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+    .media-table th,
+    .media-table td {
+      border-bottom: 1px solid var(--border);
+      padding: 0.45rem 0.4rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    .media-table th {
+      color: var(--muted);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .media-table td.size,
+    .media-table td.size-compressed {
+      white-space: nowrap;
+    }
+    .media-table td.size-compressed {
+      color: var(--muted);
+    }
+    .media-table td.slides {
+      word-break: break-word;
+    }
+    .media-empty {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin: 0;
+    }
+    .cleanup-options {
+      margin-top: 1.25rem;
+      display: grid;
+      gap: 0.65rem;
+    }
+    .cleanup-options-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+    .cleanup-options-header .section-title {
+      margin: 0;
+    }
+    .link-btn {
+      background: none;
+      border: none;
+      padding: 0;
+      font: inherit;
+      font-size: 0.8rem;
+      color: var(--muted);
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .link-btn:hover {
+      color: var(--text);
+    }
+    .check-row {
+      display: flex;
+      gap: 0.5rem;
+      align-items: flex-start;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    .check-row input {
+      margin-top: 0.2rem;
+      flex-shrink: 0;
+    }
+    .check-desc {
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 400;
+      margin-top: 0.15rem;
+    }
+    .compress-suboptions {
+      display: grid;
+      grid-template-columns: 5.5rem minmax(0, 1fr);
+      gap: 0.4rem 0.75rem;
+      align-items: center;
+      margin: 0.35rem 0 0.15rem 1.65rem;
+    }
+    .compress-suboptions[hidden] {
+      display: none;
+    }
+    .compress-suboptions label {
+      margin: 0;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--muted);
+    }
+    .compress-suboptions select {
+      width: 100%;
+      padding: 0.35rem 0.5rem;
+      font-size: 0.85rem;
+    }
+    .media-px {
+      display: block;
+      margin-top: 0.15rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-weight: 400;
+    }
+    .preview-strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+    .analysis-stack {
+      padding: 0;
+    }
+    .file-analysis {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .file-analysis .section-title {
+      margin-bottom: 0.5rem;
+    }
+    .file-stats {
+      display: grid;
+      grid-template-columns: minmax(5.5rem, 38%) 1fr;
+      column-gap: 1rem;
+      row-gap: 0.25rem;
+      font-size: 0.9rem;
+      margin: 0;
+    }
+    .file-stats dt {
+      margin: 0;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .file-stats dd {
+      margin: 0;
+    }
+    .file-size-warning {
+      margin: 0.65rem 0 0;
+      padding: 0.5rem 0.65rem;
+      border-radius: 6px;
+      border: 1px solid #d97706;
+      background: #fffbeb;
+      color: #92400e;
+      font-size: 0.8rem;
+      line-height: 1.45;
+    }
+    .file-size-warning[hidden] {
+      display: none;
+    }
+    @media (prefers-color-scheme: dark) {
+      .file-size-warning {
+        border-color: #b45309;
+        background: #451a03;
+        color: #fbbf24;
+      }
+    }
+    .analysis-stack .analysis-fold {
+      border: none;
+      border-radius: 0;
+      margin: 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .analysis-stack .analysis-fold:last-child {
+      border-bottom: none;
+    }
+    .analysis-fold summary {
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.85rem 1.25rem;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 600;
+      user-select: none;
+    }
+    .analysis-fold summary::-webkit-details-marker {
+      display: none;
+    }
+    .analysis-fold summary::after {
+      content: "▸";
+      color: var(--muted);
+      font-size: 0.85rem;
+      flex-shrink: 0;
+      transition: transform 0.15s;
+    }
+    .analysis-fold[open] summary::after {
+      transform: rotate(90deg);
+    }
+    .fold-badge {
+      flex: 1;
+      text-align: right;
+      font-size: 0.8rem;
+      font-weight: 400;
+      color: var(--muted);
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .fold-body {
+      padding: 0 1.25rem 1rem;
+    }
+    .font-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+    .font-table th,
+    .font-table td {
+      border-bottom: 1px solid var(--border);
+      padding: 0.45rem 0.4rem;
+      text-align: left;
+    }
+    .font-table th {
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .font-table td.count,
+    .font-table td.file-size {
+      white-space: nowrap;
+      text-align: right;
+    }
+    .font-table td.file-size {
+      width: 6.5rem;
+      color: var(--muted);
+    }
+    .media-name--preview {
+      cursor: help;
+      text-decoration: underline dotted;
+      text-decoration-color: var(--muted);
+      text-underline-offset: 2px;
+    }
+    .media-col-thumb {
+      width: 2.75rem;
+      padding-right: 0.25rem;
+    }
+    .media-thumb-cell {
+      width: 2.75rem;
+      padding: 0.35rem 0.25rem 0.35rem 0.4rem;
+      vertical-align: middle;
+    }
+    .media-inline-thumb {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.25rem;
+      height: 2.25rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--bg);
+      overflow: hidden;
+      cursor: help;
+    }
+    .media-inline-thumb img {
+      display: block;
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+    }
+    .media-inline-thumb.is-loading {
+      background: linear-gradient(
+        90deg,
+        var(--bg) 0%,
+        var(--surface) 50%,
+        var(--bg) 100%
+      );
+      background-size: 200% 100%;
+      animation: media-thumb-shimmer 1.2s ease-in-out infinite;
+    }
+    @keyframes media-thumb-shimmer {
+      0% { background-position: 100% 0; }
+      100% { background-position: -100% 0; }
+    }
+    .media-thumb-tooltip {
+      position: fixed;
+      z-index: 2000;
+      pointer-events: none;
+      padding: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+      max-width: min(320px, 92vw);
+    }
+    .media-thumb-tooltip img {
+      display: block;
+      max-width: 280px;
+      max-height: 280px;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      border-radius: 4px;
+    }
+    .media-thumb-tooltip .media-thumb-fallback {
+      display: block;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      max-width: 200px;
+    }
+    .analysis-empty {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin: 0;
+    }
+    .app-version {
+      margin: 1.25rem 0 0;
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-align: center;
+    }
+    .app-version a {
+      color: var(--muted);
+    }
+    .app-version a:hover {
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="page-header">
+      <h1>PPT Finalizer</h1>
+      <p class="lead">PowerPoint (.pptx) の不要データ削除・フォント統一処理をブラウザ内で行います。ファイルはサーバーへ送信されません。</p>
+    </header>
+
+    <div class="layout">
+      <div class="layout-main">
+        <section class="panel">
+      <div class="dropzone" id="dropzone" aria-label="PPTXファイルをドロップ">
+        <p><strong>.pptx</strong> をドロップ</p>
+        <p class="hint">PowerPoint で開いているファイルは閉じてから</p>
+        <div class="open-row">
+          <button type="button" class="secondary" id="openBtn">ファイルを開く（上書き可）</button>
+          <button type="button" class="secondary" id="pickBtn" hidden>ファイルを選ぶ（ダウンロードのみ）</button>
+        </div>
+        <p class="file-name" id="fileName"></p>
+        <span class="file-mode" id="fileMode" hidden></span>
+      </div>
+      <p class="file-area-note" id="fsNote">
+        上書き保存は Chrome / Edge など File System Access API 対応ブラウザで利用できます。
+        初回上書き時のみ、バックアップ保存用にフォルダ確認ダイアログが出る場合があります（元ファイルと同じフォルダを選んでください）。
+        表示には PC に指定フォントがインストールされている必要があります。
+      </p>
+      <input type="file" id="fileInput" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" hidden>
+
+      <section class="panel font-options" id="fontOptionsPanel">
+        <div class="cleanup-options-header">
+          <h2 class="section-title">フォント統一</h2>
+        </div>
+        <label class="check-row">
+          <input type="checkbox" id="optReplaceFonts" checked>
+          <span>
+            タイトル／本文フォントを統一する
+            <div class="check-desc">チェックを外すと、フォントは元のまま変更しません</div>
+          </span>
+        </label>
+        <div class="font-row">
+          <label for="titleFontSelect">タイトル</label>
+          <div class="font-picker-row">
+            <div class="font-picker-control">
+              <select id="titleFontSelect"></select>
+              <input type="text" id="titleCustomFontInput" class="custom-font" hidden
+                placeholder="フォント名を入力" autocomplete="off" spellcheck="false"
+                aria-label="タイトル用フォント名（自由入力）">
+            </div>
+            <p class="font-preview font-preview--title" id="titleFontPreview" aria-live="polite">見出し Sample あいう ABC 123</p>
+          </div>
+        </div>
+        <div class="font-row">
+          <label for="bodyFontSelect">本文</label>
+          <div class="font-picker-row">
+            <div class="font-picker-control">
+              <select id="bodyFontSelect"></select>
+              <input type="text" id="bodyCustomFontInput" class="custom-font" hidden
+                placeholder="フォント名を入力" autocomplete="off" spellcheck="false"
+                aria-label="本文用フォント名（自由入力）">
+            </div>
+            <p class="font-preview font-preview--body" id="bodyFontPreview" aria-live="polite">本文 Sample あいう ABC 123</p>
+          </div>
+        </div>
+        <p class="scanning" id="scanningMsg" hidden>分析中…</p>
+      </section>
+
+      <section class="panel cleanup-options" id="cleanupPanel" hidden>
+        <div class="cleanup-options-header">
+          <h2 class="section-title">整理オプション</h2>
+          <button type="button" class="link-btn" id="uncheckAllOptionsBtn">すべて外す</button>
+        </div>
+        <label class="check-row">
+          <input type="checkbox" id="optRemoveOrphanMedia" checked>
+          <span>
+            孤立メディアを削除
+            <div class="check-desc">パッケージ内のどの rel からも参照されていない画像・動画を削除</div>
+            <div class="check-desc">削除予定: <span class="preview-strong" id="orphanMediaPreview">—</span></div>
+          </span>
+        </label>
+        <label class="check-row">
+          <input type="checkbox" id="optCompressImages" checked>
+          <span>
+            画像を圧縮する
+            <div class="check-desc">スライド上の表示サイズに対する解像度（ppi）で縮小し、JPEG は再圧縮します</div>
+            <div class="check-desc">対象: <span class="preview-strong" id="compressImagesPreview">—</span></div>
+          </span>
+        </label>
+        <div class="compress-suboptions" id="compressImageOptions">
+          <label for="imagePpiSelect">解像度</label>
+          <select id="imagePpiSelect" aria-label="画像の目標解像度">
+            <option value="96">96 ppi（メール）</option>
+            <option value="150" selected>150 ppi（画面）</option>
+            <option value="220">220 ppi（HD）</option>
+          </select>
+          <label for="jpegQualitySelect">JPEG 品質</label>
+          <select id="jpegQualitySelect" aria-label="JPEG 再圧縮の品質">
+            <option value="0.75" selected>標準</option>
+            <option value="0.85">高</option>
+          </select>
+        </div>
+        <label class="check-row">
+          <input type="checkbox" id="optRemoveUnusedStructure">
+          <span>
+            未使用レイアウト／マスターを削除
+            <div class="check-desc" id="structureOptionDesc">スライドから参照されていない型・マスター XML および関連するメディアを削除します</div>
+            <div class="check-desc">削除予定: <span class="preview-strong" id="structurePreview">—</span></div>
+          </span>
+        </label>
+        <label class="check-row">
+          <input type="checkbox" id="optRemoveNotes">
+          <span>
+            スピーカーノートを削除
+            <div class="check-desc">各スライドのノート領域（notesSlide）を削除します</div>
+            <div class="check-desc">削除予定: <span class="preview-strong" id="notesPreview">—</span></div>
+          </span>
+        </label>
+        <label class="check-row">
+          <input type="checkbox" id="optRemoveProperties">
+          <span>
+            ファイルプロパティを削除
+            <div class="check-desc">作成者・会社名・カスタムプロパティ・サムネイル等のメタデータをクリアします</div>
+            <div class="check-desc">削除予定: <span class="preview-strong" id="propertiesPreview">—</span></div>
+          </span>
+        </label>
+      </section>
+
+        </section>
+
+        <div class="actions-sticky">
+          <div class="actions-sticky-inner">
+            <div class="actions">
+              <button type="button" class="primary" id="overwriteBtn" disabled hidden>仕上げて上書き（バックアップ付き）</button>
+              <button type="button" class="secondary" id="downloadBtn" disabled>仕上げてダウンロード</button>
+              <button type="button" class="secondary" id="clearBtn" disabled>クリア</button>
+            </div>
+            <p class="error" id="errorMsg" hidden></p>
+          </div>
+        </div>
+      </div>
+
+      <aside class="layout-side" id="layoutSide" aria-label="分析と処理結果">
+        <div class="side-tabs" id="sideTabs" hidden role="tablist" aria-label="右パネル">
+          <button type="button" class="side-tab is-active" id="sideTabAnalysisBtn" data-side-tab="analysis" role="tab" aria-selected="true" aria-controls="sideTabAnalysis">分析</button>
+          <button type="button" class="side-tab" id="sideTabResultBtn" data-side-tab="result" role="tab" aria-selected="false" aria-controls="sideTabResult">結果<span class="side-tab-badge" id="resultTabBadge" hidden aria-label="新しい結果">●</span></button>
+        </div>
+        <div class="layout-side-scroll">
+          <p class="side-placeholder" id="sidePlaceholder">PPTX を開くと、ここに分析と処理結果が表示されます。</p>
+
+          <div class="side-tab-panel" id="sideTabAnalysis" data-side-panel="analysis" role="tabpanel" aria-labelledby="sideTabAnalysisBtn">
+            <section class="panel analysis-stack" id="analysisStack" hidden>
+      <div class="file-analysis" id="fileAnalysis">
+        <h2 class="section-title">ファイル分析</h2>
+        <dl class="file-stats">
+          <dt>ファイルサイズ</dt>
+          <dd id="fileAnalysisSize">—</dd>
+          <dt>スライド数</dt>
+          <dd id="fileAnalysisSlides">—</dd>
+          <dt>仕上げ後サイズ</dt>
+          <dd id="fileAnalysisAfterSize">—</dd>
+        </dl>
+        <p class="file-size-warning" id="fileSizeWarning" hidden></p>
+        <div class="reduction-block" id="reductionBlock" hidden>
+          <div class="reduction-bar" id="reductionBar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="削減見込み">
+            <div class="reduction-bar-fill" id="fileAnalysisEstimateBar"></div>
+          </div>
+        </div>
+      </div>
+      <details class="analysis-fold" id="fontAnalysisFold">
+        <summary>
+          <span>フォント分析</span>
+          <span class="fold-badge" id="fontAnalysisBadge">—</span>
+        </summary>
+        <div class="fold-body">
+          <p class="media-summary" id="fontSummary"></p>
+          <div class="media-table-wrap">
+            <table class="font-table">
+              <thead>
+                <tr>
+                  <th>フォント名</th>
+                  <th>埋込サイズ</th>
+                  <th>使用箇所</th>
+                </tr>
+              </thead>
+              <tbody id="fontTableBody"></tbody>
+            </table>
+          </div>
+          <p class="analysis-empty" id="fontEmpty" hidden>typeface 属性は見つかりませんでした。</p>
+        </div>
+      </details>
+
+      <details class="analysis-fold" id="mediaAnalysisFold">
+        <summary>
+          <span>メディア容量分析</span>
+          <span class="fold-badge" id="mediaAnalysisBadge">—</span>
+        </summary>
+        <div class="fold-body">
+          <p class="media-summary" id="mediaSummary"></p>
+          <div class="media-table-wrap">
+            <table class="media-table">
+              <thead>
+                <tr>
+                  <th class="media-col-thumb" aria-label="プレビュー"><span hidden>プレビュー</span></th>
+                  <th>ファイル</th>
+                  <th>サイズ</th>
+                  <th>使用スライド</th>
+                </tr>
+              </thead>
+              <tbody id="mediaTableBody"></tbody>
+            </table>
+          </div>
+          <p class="analysis-empty" id="mediaEmpty" hidden>ppt/media/ 内のメディアは見つかりませんでした。</p>
+        </div>
+      </details>
+            </section>
+          </div>
+
+          <div class="side-tab-panel" id="sideTabResult" data-side-panel="result" role="tabpanel" aria-labelledby="sideTabResultBtn" hidden>
+            <p class="analysis-empty" id="resultEmpty">仕上げると結果がここに表示されます。</p>
+            <section class="panel" id="resultPanel" hidden>
+              <div id="stats"></div>
+            </section>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <p class="disclaimer">
+      本ツールのご利用および処理結果については、利用者ご自身の責任において行ってください。
+      処理されたファイルに関して生じたいかなる問題についても、作者は一切の責任を負いません。
+    </p>
+    <p class="app-version" id="appVersionLine" hidden>
+      <a href="https://github.com/symmr/ppt-finalizer/" target="_blank" rel="noopener noreferrer">GitHub</a>
+      · <span id="appVersion"></span>
+    </p>
+  </main>
+
+  <div id="mediaThumbTooltip" class="media-thumb-tooltip" hidden aria-hidden="true">
+    <img alt="">
+    <span class="media-thumb-fallback" hidden></span>
+  </div>
+
+  <script>
+    (async function loadAppScripts() {
+      let version = String(Date.now());
+      try {
+        const res = await fetch("version.json", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.version) version = data.version;
+        }
+      } catch (_) {}
+      for (const file of ["pptx-core.js", "app.js"]) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = `${file}?v=${encodeURIComponent(version)}`;
+          script.onload = resolve;
+          script.onerror = reject;
+          document.body.appendChild(script);
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

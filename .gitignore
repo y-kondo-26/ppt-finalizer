@@ -1,0 +1,6 @@
+.DS_Store
+Thumbs.db
+*.tmp.pptx
+*_backup*.pptx
+SKILL.md
+node_modules/
